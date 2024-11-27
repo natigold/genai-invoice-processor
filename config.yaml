@@ -1,5 +1,5 @@
 aws:
-  region_name: us-west-2
+  region_name: us-east-1
   model_id: anthropic.claude-3-sonnet-20240229-v1:0
   prompts:
     full: Extract data from attached invoice in key-value format.
@@ -30,5 +30,7 @@ aws:
     summary: Process the pdf invoice and summarize the invoice under 3 lines
 
 processing:
+  iteration_id: iteration_1
   output_file: processed_invoice_output.json
+  stats_file: stats_output.json
   local_download_folder: invoices

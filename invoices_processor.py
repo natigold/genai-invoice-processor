@@ -12,6 +12,10 @@ from threading import Lock
 from mypy_boto3_bedrock_runtime.client import BedrockRuntimeClient
 from mypy_boto3_s3.client import S3Client
 
+import logging
+
+logger = logging.getLogger()
+
 # Load configuration from YAML file
 def load_config():
     """
@@ -88,12 +92,31 @@ def process_invoice(s3_client: S3Client, bedrock_client: BedrockRuntimeClient, b
     # Process invoice with different prompts
     results = {}
     for prompt_name in ["full", "structured", "summary"]:
+        start_time = time.time()
+
         response = retrieve_and_generate(bedrock_client, CONFIG['aws']['prompts'][prompt_name], document_uri)
         results[prompt_name] = response['output']['text']
 
+        elapsed_time = time.time() - start_time
+        elapsed_time_formatted = str(datetime.timedelta(seconds=elapsed_time))
+
+        print(f"Processed {pdf_file_key} with {prompt_name} prompt in {elapsed_time_formatted}")
+
+        iteration = CONFIG['processing']['iteration_id']
+
+        stats = {
+            "elapsed_time": elapsed_time_formatted,
+            "prompt": prompt_name,
+            "document_uri": document_uri,
+            "model_id": CONFIG['aws']['model_id']
+        }        
+
+        write_to_json_file(CONFIG['processing']['stats_file'], {iteration: stats}, True)
+
+
     return results
 
-def write_to_json_file(output_file: str, data: Dict[str, Any]):
+def write_to_json_file(output_file: str, data: Dict[str, Any], append_only: bool = False):
     """
     Write the given data to the JSON output file, augmenting it incrementally.
     
@@ -107,9 +130,15 @@ def write_to_json_file(output_file: str, data: Dict[str, Any]):
             with open(output_file, 'r') as file:
                 existing_data = json.load(file)
         else:
-            existing_data = {}
+            if append_only:
+                existing_data = []
+            else:
+                existing_data = {}
 
-        existing_data.update(data)
+        if append_only:
+            existing_data.append(data)
+        else:
+            existing_data.update(data)
 
         # Write updated data back to the file
         with open(output_file, 'w') as file:
