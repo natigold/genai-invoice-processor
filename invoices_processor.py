@@ -69,7 +69,7 @@ def retrieve_and_generate(bedrock_client: BedrockRuntimeClient, input_prompt: st
         }
     )
 
-def process_invoice(s3_client: S3Client, bedrock_client: BedrockRuntimeClient, bucket_name: str, pdf_file_key: str) -> Dict[str, str]:
+def process_invoice(s3_client: S3Client, bedrock_client: BedrockRuntimeClient, bucket_name: str, pdf_file_key: str, iteration) -> Dict[str, str]:
     """
     Process a single invoice by downloading it from S3 and using Bedrock to analyze it.
     
@@ -101,8 +101,6 @@ def process_invoice(s3_client: S3Client, bedrock_client: BedrockRuntimeClient, b
         elapsed_time_formatted = str(datetime.timedelta(seconds=elapsed_time))
 
         print(f"Processed {pdf_file_key} with {prompt_name} prompt in {elapsed_time_formatted}")
-
-        iteration = CONFIG['processing']['iteration_id']
 
         stats = {
             "elapsed_time": elapsed_time_formatted,
@@ -144,7 +142,7 @@ def write_to_json_file(output_file: str, data: Dict[str, Any], append_only: bool
         with open(output_file, 'w') as file:
             json.dump(existing_data, file, indent=4)
 
-def batch_process_s3_bucket_invoices(s3_client: S3Client, bedrock_client: BedrockRuntimeClient, bucket_name: str, prefix: str = "") -> int:
+def batch_process_s3_bucket_invoices(s3_client: S3Client, bedrock_client: BedrockRuntimeClient, bucket_name: str, iteration: str, prefix: str = "") -> int:
     """
     Batch process all invoices in an S3 bucket or a specific prefix within the bucket.
     
@@ -185,7 +183,7 @@ def batch_process_s3_bucket_invoices(s3_client: S3Client, bedrock_client: Bedroc
     processed_count = 0
     with ThreadPoolExecutor() as executor:
         future_to_key = {
-            executor.submit(process_invoice, s3_client, bedrock_client, bucket_name, pdf_file_key): pdf_file_key
+            executor.submit(process_invoice, s3_client, bedrock_client, bucket_name, pdf_file_key, iteration): pdf_file_key
             for pdf_file_key in pdf_file_keys
         }
 
@@ -210,6 +208,7 @@ def main():
     parser = argparse.ArgumentParser(description="Batch process PDF invoices from an S3 bucket.")
     parser.add_argument('--bucket_name', required=True, type=str, help="The name of the S3 bucket.")
     parser.add_argument('--prefix', type=str, default="", help="S3 bucket folder (prefix) where invoices are stored.")
+    parser.add_argument('--iteration_id', required=True, type=str, default="", help="Iteration ID.")
     args = parser.parse_args()
 
     if os.path.exists(CONFIG['processing']['output_file']):
@@ -218,7 +217,7 @@ def main():
     s3_client, bedrock_client = initialize_aws_clients()
 
     start_time = time.time()
-    processed_invoices = batch_process_s3_bucket_invoices(s3_client, bedrock_client, args.bucket_name, args.prefix)
+    processed_invoices = batch_process_s3_bucket_invoices(s3_client, bedrock_client, args.bucket_name, args.iteration_id, args.prefix)
     elapsed_time = time.time() - start_time
     elapsed_time_formatted = str(datetime.timedelta(seconds=elapsed_time))
 

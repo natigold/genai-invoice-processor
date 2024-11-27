@@ -30,7 +30,6 @@ aws:
     summary: Process the pdf invoice and summarize the invoice under 3 lines
 
 processing:
-  iteration_id: iteration_1
   output_file: processed_invoice_output.json
   stats_file: stats_output.json
   local_download_folder: invoices
